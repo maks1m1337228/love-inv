@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Квест для Сони</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0010, #1a0030, #0a0010);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            padding: 20px;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .stars {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1;
+        }
+        .star {
+            position: absolute; background: #fff; border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.5); }
+        }
+
+        .card {
+            position: relative; z-index: 10;
+            background: rgba(30, 10, 45, 0.9);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(200, 130, 220, 0.4);
+            border-radius: 40px;
+            padding: 40px 30px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(180, 100, 220, 0.4);
+            animation: cardGlow 3s ease-in-out infinite alternate;
+        }
+        @keyframes cardGlow {
+            0% { box-shadow: 0 0 40px rgba(180, 100, 220, 0.4); }
+            100% { box-shadow: 0 0 60px rgba(200, 130, 240, 0.6); }
+        }
+
+        .screen { display: none; }
+        .screen.active { display: block; animation: fadeIn 0.6s ease; }
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: 32px;
+            background: linear-gradient(135deg, #ff6b9d, #d9a3e8, #ff6b9d);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: textShine 3s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes textShine {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        p { color: #f0e6f5; font-size: 18px; line-height: 1.6; margin-bottom: 25px; }
+
+        .btn {
+            padding: 14px 32px; border: none; border-radius: 60px;
+            font-size: 17px; font-weight: 700; cursor: pointer;
+            transition: all 0.3s ease; letter-spacing: 1px;
+            background: linear-gradient(135deg, #ff6b9d, #d94a8a);
+            color: #fff;
+            box-shadow: 0 0 30px rgba(255, 107, 157, 0.6);
+        }
+        .btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 50px rgba(255, 107, 157, 0.9);
+        }
+
+        /* ——— ЭКРАН 1: ЗАГАДКА ——— */
+        .options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .option {
+            padding: 14px 20px; border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(200, 130, 220, 0.3);
+            color: #f0e6f5; font-size: 17px; cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .option:hover {
+            background: rgba(255, 107, 157, 0.2);
+            border-color: #ff6b9d;
+        }
+        .option.correct {
+            background: rgba(100, 255, 150, 0.2);
+            border-color: #64ff96;
+        }
+        .option.wrong {
+            background: rgba(255, 80, 80, 0.2);
+            border-color: #ff5050;
+        }
+        .hint { color: #b380cc; font-size: 15px; margin-top: 10px; display: none; }
+
+        /* ——— ЭКРАН 2: ПАЗЛ С ФОТО ——— */
+        .puzzle-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 4px;
+            max-width: 320px;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto 20px;
+            border: 3px solid rgba(200, 130, 220, 0.6);
+            border-radius: 16px;
+            overflow: hidden;
+            background: #0a0010;
+        }
+
+        .puzzle-piece {
+            width: 100%;
+            height: 100%;
+            background-size: 200% 200%;
+            background-repeat: no-repeat;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .puzzle-piece:hover {
+            filter: brightness(1.2);
+        }
+
+        .puzzle-piece.done {
+            cursor: default;
+            filter: brightness(1);
+        }
+
+        .puzzle-piece.done::after {
+            content: '✓';
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            font-size: 18px;
+            color: #64ff96;
+            text-shadow: 0 0 5px #000;
+            font-weight: bold;
+        }
+
+        .puzzle-piece.wrong {
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+                .puzzle-complete {
+            max-width: 320px;
+            width: 100%;
+            margin: 0 auto 20px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 3px solid #64ff96;
+            box-shadow: 0 0 30px rgba(100, 255, 150, 0.5);
+            animation: completeAppear 1s ease;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .puzzle-complete img {
+            max-width: 100%;
+            max-height: 400px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: block;
+            border-radius: 10px;
+        }
+
+        @keyframes completeAppear {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .puzzle-hint {
+            color: #b380cc;
+            font-size: 15px;
+            margin-top: 10px;
+        }
+
+        .continue-btn-wrapper {
+            text-align: center;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .continue-btn-wrapper.show {
+            display: block;
+            animation: fadeIn 0.6s ease;
+        }
+
+        /* ——— ЭКРАН 3: СОБЕРИ ФРАЗУ ——— */
+        .phrase-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .phrase-slot {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            min-height: 50px;
+            padding: 12px;
+            border-bottom: 2px dashed rgba(200, 130, 220, 0.4);
+            width: 100%;
+        }
+
+        .words-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .word-btn {
+            padding: 12px 22px;
+            border-radius: 40px;
+            background: rgba(200, 130, 220, 0.2);
+            border: 2px solid rgba(200, 130, 220, 0.4);
+            color: #f0e6f5;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .word-btn:hover {
+            background: rgba(255, 107, 157, 0.3);
+            border-color: #ff6b9d;
+            transform: scale(1.05);
+        }
+
+        .word-btn.placed {
+            opacity: 0.3;
+            pointer-events: none;
+            text-decoration: line-through;
+        }
+
+        .word-btn.selected {
+            background: rgba(100, 255, 150, 0.3);
+            border-color: #64ff96;
+            transform: scale(1.1);
+        }
+
+        .phrase-hint {
+            color: #b380cc;
+            font-size: 15px;
+            margin-top: 10px;
+        }
+
+        /* ——— ЭКРАН 4: ФИНАЛ ——— */
+        .result { display: none; margin-top: 20px; }
+        .result.show { display: block; animation: resultAppear 0.8s ease; }
+        @keyframes resultAppear {
+            0% { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+
+        .confetti {
+            position: fixed; width: 10px; height: 10px;
+            pointer-events: none; z-index: 100;
+            animation: confettiFall 3s linear forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+
+        .progress {
+            display: flex; justify-content: center; gap: 10px; margin-bottom: 25px;
+        }
+        .progress-dot {
+            width: 12px; height: 12px; border-radius: 50%;
+            background: rgba(200, 130, 220, 0.3);
+            transition: all 0.3s ease;
+        }
+        .progress-dot.active {
+            background: #ff6b9d;
+            box-shadow: 0 0 15px #ff6b9d;
+            transform: scale(1.3);
+        }
+        .progress-dot.done { background: #64ff96; }
+    </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<div class="card">
+    <!-- ПРОГРЕСС -->
+    <div class="progress">
+        <div class="progress-dot active" id="dot1"></div>
+        <div class="progress-dot" id="dot2"></div>
+        <div class="progress-dot" id="dot3"></div>
+        <div class="progress-dot" id="dot4"></div>
+    </div>
+
+    <!-- ЭКРАН 1: ЗАГАДКА -->
+    <div class="screen active" id="screen1">
+        <h1>Шаг 1: Загадка</h1>
+        <p>Где мы познакомились?</p>
+        <div class="options">
+            <div class="option" data-correct="false">В кафе</div>
+            <div class="option" data-correct="true">В дв</div>
+            <div class="option" data-correct="false">На концерте</div>
+            <div class="option" data-correct="false">На улице</div>
+        </div>
+        <div class="hint" id="hint1">💡 Подсказка: мы долго переписывались, прежде чем встретиться</div>
+    </div>
+
+    <!-- ЭКРАН 2: ПАЗЛ С ФОТО -->
+    <div class="screen" id="screen2">
+        <h1>Шаг 2: Собери нашу фотку</h1>
+        <p>Нажми на части в правильном порядке</p>
+        <div class="puzzle-grid" id="puzzleGrid"></div>
+        <div class="puzzle-hint" id="puzzleHint">💡 Подсказка: собери как пазл — слева направо, сверху вниз</div>
+        <div class="continue-btn-wrapper" id="continueBtnWrapper">
+            <button class="btn" id="continueBtn">Продолжить →</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 3: СОБЕРИ ФРАЗУ -->
+    <div class="screen" id="screen3">
+        <h1>Шаг 3: Собери фразу</h1>
+        <p>Нажми на слова в правильном порядке</p>
+        <div class="phrase-container" id="phraseContainer"></div>
+        <div class="phrase-hint" id="phraseHint">Начни с первого слова</div>
+    </div>
+
+    <!-- ЭКРАН 4: ФИНАЛ -->
+    <div class="screen" id="screen4">
+        <h1>💌 Любимочка, это тебе</h1>
+        <p>
+            Ты прошла весь квест!<br />
+            А теперь — главное.<br /><br />
+            Я приглашаю тебя на <strong style="color:#ff6b9d;">свидание</strong>.<br />
+            Мы вместе, весь день.<br /><br />
+            Ты со мной?
+        </p>
+        <button class="btn" id="yesBtn">💖 Да, я согласна</button>
+        <div class="result" id="result">
+            <h2 style="color:#ff6b9d; font-size:26px; margin-bottom:10px;">💕 Я знал, что ты скажешь «да»!</h2>
+            <p>Тогда готовься: я всё продумал.<br />Завтра будь готова к 15:00, я заеду за тобой<br /><strong>Ложись пораньше, я тебя люблю ❤️</strong></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ——— ЗВЁЗДЫ ———
+    const starsContainer = document.getElementById('stars');
+    for (let i = 0; i < 120; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        const size = Math.random() * 3 + 1;
+        star.style.width = size + 'px';
+        star.style.height = size + 'px';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 3 + 's';
+        star.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        starsContainer.appendChild(star);
+    }
+
+    // ——— ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ ———
+    function showScreen(num) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById('screen' + num).classList.add('active');
+        for (let i = 1; i <= 4; i++) {
+            const dot = document.getElementById('dot' + i);
+            dot.classList.remove('active', 'done');
+            if (i < num) dot.classList.add('done');
+            if (i === num) dot.classList.add('active');
+        }
+    }
+
+    // ——— ЭКРАН 1: ЗАГАДКА ———
+    document.querySelectorAll('#screen1 .option').forEach(opt => {
+        opt.addEventListener('click', function() {
+            const isCorrect = this.dataset.correct === 'true';
+            if (isCorrect) {
+                this.classList.add('correct');
+                setTimeout(() => showScreen(2), 600);
+            } else {
+                this.classList.add('wrong');
+                document.getElementById('hint1').style.display = 'block';
+                setTimeout(() => this.classList.remove('wrong'), 800);
+            }
+        });
+    });
+
+    // ——— ЭКРАН 2: ПАЗЛ С ФОТО ———
+    const puzzleGrid = document.getElementById('puzzleGrid');
+    const puzzleHint = document.getElementById('puzzleHint');
+    const totalPieces = 4;
+    let currentPiece = 0;
+
+    // Фото, которое собираем (замени на своё)
+    const PHOTO_URL = 'photo.jpg';
+
+    // Позиции для 4 частей (2x2)
+    const positions = [
+        { x: '0%', y: '0%' },
+        { x: '100%', y: '0%' },
+        { x: '0%', y: '100%' },
+        { x: '100%', y: '100%' }
+    ];
+
+    // Перемешиваем порядок частей
+    let shuffledOrder = [0, 1, 2, 3];
+    shuffledOrder.sort(() => Math.random() - 0.5);
+
+    // Создаём части пазла
+    shuffledOrder.forEach((pieceIndex) => {
+        const piece = document.createElement('div');
+        piece.className = 'puzzle-piece';
+        piece.dataset.order = pieceIndex;
+        piece.style.backgroundImage = `url(${PHOTO_URL})`;
+        piece.style.backgroundPosition = `${positions[pieceIndex].x} ${positions[pieceIndex].y}`;
+
+        piece.addEventListener('click', function() {
+            if (parseInt(this.dataset.order) === currentPiece) {
+                this.classList.add('done');
+                currentPiece++;
+
+                puzzleHint.textContent = `Собрано: ${currentPiece} из ${totalPieces}`;
+
+                if (currentPiece === totalPieces) {
+                    puzzleHint.textContent = '✅ Фотка собрана!';
+
+                    // Показываем целую фотку и кнопку "Продолжить"
+                                        setTimeout(() => {
+                        // Скрываем сетку пазла
+                        puzzleGrid.style.display = 'none';
+
+                        // Создаём отдельный контейнер для целой фотки
+                        const completeDiv = document.createElement('div');
+                        completeDiv.className = 'puzzle-complete';
+                        completeDiv.innerHTML = `<img src="${PHOTO_URL}" alt="Наша фотка" />`;
+
+                        // Вставляем фотку перед сеткой пазла (внутрь screen2)
+                        puzzleGrid.parentNode.insertBefore(completeDiv, puzzleGrid);
+
+                        // Показываем кнопку "Продолжить"
+                        const btnWrapper = document.getElementById('continueBtnWrapper');
+                        btnWrapper.classList.add('show');
+                    }, 500);
+                }
+            } else {
+                this.classList.add('wrong');
+                puzzleHint.textContent = '❌ Не та часть. Попробуй другую.';
+                setTimeout(() => this.classList.remove('wrong'), 400);
+            }
+        });
+
+        puzzleGrid.appendChild(piece);
+    });
+
+    // ——— КНОПКА ПРОДОЛЖИТЬ (после пазла) ———
+    document.getElementById('continueBtn').addEventListener('click', function() {
+        showScreen(3);
+    });
+
+    // ——— ЭКРАН 3: СОБЕРИ ФРАЗУ ———
+    const correctPhrase = ['Я', 'хочу', 'свидание', 'с', 'тобой'];
+    const shuffledWords = ['свидание', 'тобой', 'Я', 'с', 'хочу'];
+    let placedWords = [];
+
+    const phraseContainer = document.getElementById('phraseContainer');
+    const phraseHint = document.getElementById('phraseHint');
+
+    // Поле для собранной фразы
+    const phraseSlot = document.createElement('div');
+    phraseSlot.className = 'phrase-slot';
+    phraseSlot.id = 'phraseSlot';
+    phraseContainer.appendChild(phraseSlot);
+
+    // Обёртка для кнопок со словами
+    const wordsWrapper = document.createElement('div');
+    wordsWrapper.className = 'words-wrapper';
+    phraseContainer.appendChild(wordsWrapper);
+
+    shuffledWords.forEach(word => {
+        const btn = document.createElement('div');
+        btn.className = 'word-btn';
+        btn.textContent = word;
+        btn.dataset.word = word;
+        btn.addEventListener('click', function() {
+            const nextWord = correctPhrase[placedWords.length];
+            if (word === nextWord) {
+                this.classList.add('placed');
+                placedWords.push(word);
+                // Добавляем слово в поле фразы
+                const placedSpan = document.createElement('span');
+                placedSpan.className = 'word-btn selected';
+                placedSpan.textContent = word;
+                phraseSlot.appendChild(placedSpan);
+                phraseHint.textContent = `Собрано: ${placedWords.length} из ${correctPhrase.length}`;
+
+                if (placedWords.length === correctPhrase.length) {
+                    phraseHint.textContent = '✅ Фраза собрана!';
+                    setTimeout(() => showScreen(4), 800);
+                }
+            } else {
+                this.style.borderColor = '#ff5050';
+                phraseHint.textContent = '❌ Не то слово. Попробуй другое.';
+                setTimeout(() => {
+                    this.style.borderColor = '';
+                }, 500);
+            }
+        });
+        wordsWrapper.appendChild(btn);
+    });
+
+    // ——— ЭКРАН 4: КОНФЕТТИ И КНОПКА ———
+    function createConfetti() {
+        const colors = ['#ff6b9d', '#d9a3e8', '#b57ac9', '#ff9ec4', '#e0b0ff', '#ff4d8d'];
+        for (let i = 0; i < 100; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.width = (Math.random() * 8 + 5) + 'px';
+            confetti.style.height = (Math.random() * 8 + 5) + 'px';
+            confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+            confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+            confetti.style.animationDelay = Math.random() * 0.5 + 's';
+            document.body.appendChild(confetti);
+            setTimeout(() => confetti.remove(), 5000);
+        }
+    }
+
+    document.getElementById('yesBtn').addEventListener('click', function() {
+        document.getElementById('result').classList.add('show');
+        this.style.display = 'none';
+        createConfetti();
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+    });
+</script>
+
+</body>
+</html>
